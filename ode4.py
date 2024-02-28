@@ -1,5 +1,5 @@
 import numpy as np
-import pinocchio
+import pinocchio as pin
 
 def f(model, data, S, dS, tau, x):
     q = x[:model.nv]
@@ -28,13 +28,13 @@ def f(model, data, S, dS, tau, x):
     dS[1, 0] = dtheta*wheel_radius*np.cos(theta)/2
     dS[1, 1] = dtheta*wheel_radius*np.cos(theta)/2
 
-    Mq = pinocchio.crba(model, data, q_pin)
+    Mq = pin.crba(model, data, q_pin)
     data.M[np.tril_indices(model.nv, -1)] = data.M.transpose()[np.tril_indices(model.nv, -1)]
     Mq = data.M
     Damp = np.eye(model.nv)
     for i in range(model.nv):
         Damp[i, i] = model.damping[i]
-    nq = pinocchio.rnea(model, data, q_pin, dq, np.zeros(model.nv)) + np.dot(Damp, dq)
+    nq = pin.rnea(model, data, q_pin, dq, np.zeros(model.nv)) + np.dot(Damp, dq)
 
     # reduced model
     M = np.dot(np.dot(S.transpose(), Mq), S)
@@ -63,40 +63,16 @@ def ode4(model, data, x0, dt, tau, S, dS):
     return x
 
 
-
 def qnv2pinocchio(q, nq):
-    """
-    Convert the floating-point base variables from RPY to quaternion representation.
-    
-    Parameters:
-    - q: The input state vector including RPY angles.
-    - nq: The total number of generalized coordinates, including the quaternion.
-    
-    Returns:
-    - q_pin: The state vector with the base orientation represented as a quaternion.
-    """
+    # TODO: implement ...
+    R = RPY_to_R(q[3], q[4], q[5])
+    quat = pin.Quaternion(R)
 
-    print("q: ", q)
-    print("nq: ", nq)
+    return
 
-    return q
-
-    # Assuming the first 3 elements are position and the next 3 are RPY angles
-    pos = q[:3]  # Extract position
-    rpy = q[3:6].astype(float)  # Ensure RPY angles are floats
-    
-    # Convert RPY to SE3 object (transformation matrix), then extract the quaternion
-    se3 = pinocchio.SE3.Identity()
-    se3.rotation = pinocchio.rpyToMatrix(rpy[0], rpy[1], rpy[2])  # Convert RPY to rotation matrix
-    quaternion = pinocchio.Quaternion(se3.rotation).coeffs()  # Convert rotation matrix to quaternion
-    
-    # Construct the q_pin vector
-    q_pin = np.zeros(nq)
-    q_pin[:3] = pos  # Set position
-    q_pin[3:7] = quaternion  # Set quaternion (note: the order is [x, y, z, w])
-    
-    # If there are additional joints beyond the base orientation, copy them over
-    if len(q) > 6:
-        q_pin[7:] = q[6:]
-    
-    return q_pin
+def RPY_to_R(roll, pitch, yaw):
+    return np.array([
+        [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll), np.cos(yaw)*np.sin(pitch)*np.cos(roll) + np.sin(yaw)*np.sin(roll)],
+        [np.sin(yaw)*np.cos(pitch), np.sin(yaw)*np.sin(pitch)*np.sin(roll) + np.cos(yaw)*np.cos(roll), np.sin(yaw)*np.sin(pitch)*np.cos(roll) - np.cos(yaw)*np.sin(roll)],
+        [-np.sin(pitch), np.cos(pitch)*np.sin(roll), np.cos(pitch)*np.cos(roll)]
+    ])

@@ -13,8 +13,6 @@ def normalize_angle(angle):
             angle += 2 * np.pi
         return angle
     
-
-
 class UKF:
     def __init__(self):
         
@@ -54,7 +52,6 @@ class UKF:
 
     def read_measures(self, msg):
         #CHANGE THIS BY HANDLING THE ODE4 ESTIMATION
-    
         self.m[0] = 0
         self.m[1] = 0
         self.m[2] = 0
