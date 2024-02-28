@@ -1,10 +1,9 @@
 import numpy as np
 import pinocchio
-from pinocchio import utils
 
 def f(model, data, S, dS, tau, x):
     q = x[:model.nv]
-    q_pin = utils.qnv2pinocchio(q, model.nq)
+    q_pin = qnv2pinocchio(q, model.nq)
     nu = x[model.nv:]
 
     semi_axle = 0.2022
@@ -62,3 +61,42 @@ def ode4(model, data, x0, dt, tau, S, dS):
     # final solution
     x = x0 + dt*(s1 + 2*s2 + 2*s3 + s4)/6
     return x
+
+
+
+def qnv2pinocchio(q, nq):
+    """
+    Convert the floating-point base variables from RPY to quaternion representation.
+    
+    Parameters:
+    - q: The input state vector including RPY angles.
+    - nq: The total number of generalized coordinates, including the quaternion.
+    
+    Returns:
+    - q_pin: The state vector with the base orientation represented as a quaternion.
+    """
+
+    print("q: ", q)
+    print("nq: ", nq)
+
+    return q
+
+    # Assuming the first 3 elements are position and the next 3 are RPY angles
+    pos = q[:3]  # Extract position
+    rpy = q[3:6].astype(float)  # Ensure RPY angles are floats
+    
+    # Convert RPY to SE3 object (transformation matrix), then extract the quaternion
+    se3 = pinocchio.SE3.Identity()
+    se3.rotation = pinocchio.rpyToMatrix(rpy[0], rpy[1], rpy[2])  # Convert RPY to rotation matrix
+    quaternion = pinocchio.Quaternion(se3.rotation).coeffs()  # Convert rotation matrix to quaternion
+    
+    # Construct the q_pin vector
+    q_pin = np.zeros(nq)
+    q_pin[:3] = pos  # Set position
+    q_pin[3:7] = quaternion  # Set quaternion (note: the order is [x, y, z, w])
+    
+    # If there are additional joints beyond the base orientation, copy them over
+    if len(q) > 6:
+        q_pin[7:] = q[6:]
+    
+    return q_pin

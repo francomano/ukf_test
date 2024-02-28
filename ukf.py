@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-import rospy
 import numpy as np
-import tf
 import matplotlib.pyplot as plt
 
+DEBUG = False
 
 def normalize_angle(angle):
         """Normalizza un angolo all'intervallo [-pi, pi]."""
@@ -53,7 +52,6 @@ class UKF:
         self.wheel_radius = 0.0985 
         
 
-
     def read_measures(self, msg):
         #CHANGE THIS BY HANDLING THE ODE4 ESTIMATION
     
@@ -62,7 +60,6 @@ class UKF:
         self.m[2] = 0
         self.m[3] = 0
         self.m[4] = 0
-
 
     def compute_sigma_points(self):
         # Calculate square root of P matrix using Singular Value Decomposition (SVD)
@@ -103,9 +100,7 @@ class UKF:
         self.P = P_pred
 
 
-
     def h(self, x):
-
         return np.array([x[0], x[1], x[2], x[3], x[4]])
     
     
@@ -131,7 +126,7 @@ class UKF:
         x[5] += noise
         x[6] += noise
 
-        print(x[5], noise)
+        if DEBUG: print(x[5], noise)
         return x
 
     def update(self):

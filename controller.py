@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+DEBUG = False
 
 def normalize_angle(angle):
         """Normalizza un angolo all'intervallo [-pi, pi]."""
@@ -18,7 +19,6 @@ def normalize_angle(angle):
             angle += 2 * np.pi
         return angle
     
-
 
 # Controller class
 class Controller:
@@ -40,6 +40,10 @@ class Controller:
         self.rmodel = pin.buildModelFromUrdf(self.urdfFile, pin.JointModelFreeFlyer())
         self.rdata = self.rmodel.createData()
 
+        # Initialize robot configuration and velocity
+        self.q = pin.neutral(self.rmodel)
+        self.v = pin.utils.zero(self.rmodel.nv)
+
         # Define inertia matrix
         self.M = np.array([])
         
@@ -57,7 +61,6 @@ class Controller:
 
         self.iL = 0
         self.iR = 0
-
  
 
     # Callback function for the estimated state subscriber
@@ -67,16 +70,16 @@ class Controller:
 
         # Process the received state
         extended_state = msg  # [x, y, theta, iL, iR, omegaLe, omegaRe]
-        #print("stato: ", extended_state[:3])
+        if DEBUG: ("stato: ", extended_state[:3])
 
         # Print the formatted list
-        # print("Extended state: ",[format(x, f".{3}f") for x in extended_state])
+        if DEBUG: print("Extended state: ",[format(x, f".{3}f") for x in extended_state])
 
         # Extracting x and y coordinates, and tauL and tauR
         theta = extended_state[2]
         iLe = extended_state[5]
         iRe = extended_state[6]
-        #print(iLe)
+        if DEBUG: print(iLe)
 
         self.slipping.append(np.array([self.iL,self.iR]).copy())
         self.slipping_est.append(np.array([iLe,iRe]))
@@ -86,11 +89,13 @@ class Controller:
         self.thetad = normalize_angle(self.thetad)
         self.xd += dt * self.v_r * np.cos(self.thetad)
         self.yd += dt * self.v_r * np.sin(self.thetad)
+
+
         #TODO: ########################### HERE IMPLEMENT 10,11,12,13 ##############################
         desired_configuration = np.array([self.xd, self.yd, self.thetad])
         error = desired_configuration - extended_state[:3]
         error[2] = normalize_angle(error[2])
-        #print("thetad: ",self.thetad,"theta: ",extended_state[2], "error on theta: ", error[2])
+        if DEBUG: print("thetad: ",self.thetad,"theta: ",extended_state[2], "error on theta: ", error[2])
 
         self.desired_trajectory.append(desired_configuration)
         self.actual_trajectory.append(extended_state[:3])
@@ -104,8 +109,9 @@ class Controller:
         # Compute omega and v
         omega = self.w_r + self.v_r / 2 * (self.k3 * (e[1] + self.k3 * e[2]) + (math.sin(e[2]) / self.k2))
         v = self.v_r * math.cos(e[2]) - self.k3 * e[2] * omega + self.k1 * e[0]
-        #print("e3: ", e[2])
-        #print("velocities: ", [format(x, f".{3}f") for x in [v, omega]])
+        if DEBUG: print("e3: ", e[2])
+        if DEBUG: print("velocities: ", [format(x, f".{3}f") for x in [v, omega]])
+
         # Compute e_dot = (e1_dot, e2_dot, e3_dot)
         e_dot = np.array(
             [omega * e[1] + self.v_r * math.cos(e[2]) - v,
@@ -117,6 +123,7 @@ class Controller:
         omega_dot = self.v_r / 2 * (self.k3 * (e_dot[1] + self.k3 * e_dot[2]) + (math.cos(e[2])*e_dot[2] / self.k2))
         v_dot = - self.v_r * math.sin(e[2]) * e_dot[2] - self.k3 * e_dot[2] * omega - self.k3 * e[2] * omega_dot + self.k1 * e_dot[0]
         '''
+
         # Compute ξd = T @ (v, omega).T
         T = self.wheel_radius / (2 * self.wheel_distance) * np.array([
             [self.wheel_distance * (1 - iLe), self.wheel_distance * (1 - iRe)],
@@ -128,10 +135,10 @@ class Controller:
 
         # Compute ξd_dot
         omegaLd_dot = 0#T_inv[0] @ np.array([v_dot, omega_dot]).T + T_inv_dot[0] @ np.array([v, omega]).T
-        omegaRd_dot = 0#T_inv[1] @ np.array([v_dot, omega_dot]).T + T_inv_dot[1] @ np.array([v, omega]).T
+        omegaRd_dot = 0#_inv[1] @ np.array([v_dot, omega_dot]).T + T_inv_dot[1] @ np.array([v, omega]).T
 
 
-        print("Desired velocities: ", [format(x, f".{3}f") for x in [omegaLd, omegaRd]])
+        if DEBUG: print("Desired velocities: ", [format(x, f".{3}f") for x in [omegaLd, omegaRd]])
 
         #TODO: ########################### EQUATIONS 7,4,3 ###################################
         omegaLe = extended_state[3]
@@ -151,7 +158,8 @@ class Controller:
             [-self.wheel_distance/2, self.wheel_distance/2]
             ])
 
- 
+        # Compute all the terms of the dynamic model
+        pin.computeAllTerms(self.rmodel, self.rdata, self.q, self.v)
 
         # Extract centroidal mass and centroidal inertia matrix
         m = self.rdata.Ig.mass                  # Total mass of the robot
@@ -159,7 +167,7 @@ class Controller:
 
         # Compute the 3x3 mass matrix M
         self.M = np.array([[m, 0, 0], [0, m, 0], [0, 0, I_zz]])
-
+        # Compute Bbar
         Bbar = S.T @ B
 
         # Aggiunta della regolarizzazione a Bbar
@@ -178,7 +186,9 @@ class Controller:
         # Append torques
         self.torques.append(tau)
 
-        print("Torques: ", [format(x, f".{3}f") for x in tau])
+        return np.array(tau)
+
+        #print("Torques: ", [format(x, f".{3}f") for x in tau])
 
         # We have to invert the relation 
 
@@ -200,5 +210,18 @@ class Controller:
         angular_velocity = T[1][0] * omegaL + T[1][1] * omegaR
 
         return np.array([linear_velocity,angular_velocity])
+    
+
+    def plot_results(self):
+        # Plot the desired and actual trajectories
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+        ax.plot([x[0] for x in self.desired_trajectory], [x[1] for x in self.desired_trajectory], label='Desired trajectory', color='blue')
+        ax.plot([x[0] for x in self.actual_trajectory], [x[1] for x in self.actual_trajectory], label='Actual trajectory', color='red')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        ax.set_title('Desired and actual trajectories')
+        ax.set_aspect('equal')
+        ax.legend()
+        plt.show()
 
   
