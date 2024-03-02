@@ -3,7 +3,7 @@ import pinocchio as pin
 
 def f(model, data, S, dS, tau, x):
     q = x[:model.nv]
-    q_pin = qnv2pinocchio(q, model.nq)
+    q_pin = pin.SE3ToXYZQUAT(data.oMi[model.getJointId('root_joint')])
     nu = x[model.nv:]
 
     semi_axle = 0.2022
@@ -61,18 +61,3 @@ def ode4(model, data, x0, dt, tau, S, dS):
     # final solution
     x = x0 + dt*(s1 + 2*s2 + 2*s3 + s4)/6
     return x
-
-
-def qnv2pinocchio(q, nq):
-    # TODO: implement ...
-    R = RPY_to_R(q[3], q[4], q[5])
-    quat = pin.Quaternion(R)
-
-    return
-
-def RPY_to_R(roll, pitch, yaw):
-    return np.array([
-        [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll), np.cos(yaw)*np.sin(pitch)*np.cos(roll) + np.sin(yaw)*np.sin(roll)],
-        [np.sin(yaw)*np.cos(pitch), np.sin(yaw)*np.sin(pitch)*np.sin(roll) + np.cos(yaw)*np.cos(roll), np.sin(yaw)*np.sin(pitch)*np.cos(roll) - np.cos(yaw)*np.sin(roll)],
-        [-np.sin(pitch), np.cos(pitch)*np.sin(roll), np.cos(pitch)*np.cos(roll)]
-    ])

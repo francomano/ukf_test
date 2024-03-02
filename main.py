@@ -41,9 +41,10 @@ data = model.createData()
 q = pin.neutral(model)
 v = pin.utils.zero(model.nv)
 
+print("MODEL JOINTS", model.joints[0])
+
 pin.updateFramePlacements(model, data)
 print("DATAAA", pin.getFrameVelocity(model, data, model.getFrameId('root_joint')))
-print("FRAMES PLACEMENTs", pin.framesForwardKinematics(model, data, q))
 
 # Define the controller and UKF objects
 contr = controller.Controller()
