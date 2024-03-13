@@ -25,7 +25,7 @@ def f(model, data, G, tau, x, semi_axle=0.2022, wheel_radius=0.0985):
     # Convert the joint configuration to a quaternion (pinocchio uses quaternions)
     q_pin = rpy_to_quat(q)
 
-    '''
+    
     # Null space matrix of differential drive (x, y, z, roll, pitch, yaw)
     G[0, 0] = G[0, 1] = wheel_radius*np.cos(q[5])/2     # r * cos(theta) / 2
     G[1, 0] = G[1, 1] = wheel_radius*np.sin(q[5])/2     # r * sin(theta) / 2
@@ -71,7 +71,7 @@ def f(model, data, G, tau, x, semi_axle=0.2022, wheel_radius=0.0985):
     dx[model.nv:] = np.linalg.pinv(M).dot(tau_new - n)
 
     print("dx", dx)
-    '''
+    
 
     return dx
 
