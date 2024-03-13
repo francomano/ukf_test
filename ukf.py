@@ -95,7 +95,6 @@ class UKF:
         self.x = x_pred
         self.P = P_pred
 
-
     def h(self, x):
         return np.array([x[0], x[1], x[2], x[3], x[4]])
     
@@ -118,12 +117,17 @@ class UKF:
         x[2] += dt * omega              # Aggiornamento dell'angolo theta
 
         #noise = np.random.normal(0,0.001)
-        noiseL = self.P[5][5]
-        noiseR = self.P[6][6]
-        #noise = np.clip(noise, -1, 1)
+        noiseL = np.random.normal(0,self.P[5][5])
+        noiseR = np.random.normal(0,self.P[6][6])
+        noiseL = np.clip(noiseL,-1,1)
+        noiseR = np.clip(noiseL,-1,1)
         x[5] += noiseL
+        x[5] = np.clip(x[5],-0.5,0.5)
+        print("iRe before: ",x[6])
         x[6] += noiseR
-
+        x[6] = np.clip(x[6],-0.5,0.5)
+        print("iRe after: ",x[6])
+   
         return x
 
     def update(self):
