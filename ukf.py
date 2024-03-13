@@ -123,10 +123,8 @@ class UKF:
         noiseR = np.clip(noiseL,-1,1)
         x[5] += noiseL
         x[5] = np.clip(x[5],-0.5,0.5)
-        print("iRe before: ",x[6])
         x[6] += noiseR
         x[6] = np.clip(x[6],-0.5,0.5)
-        print("iRe after: ",x[6])
    
         return x
 
