@@ -50,13 +50,12 @@ class UKF:
         self.wheel_radius = 0.0985 
         
 
-    def read_measures(self, msg):
-        #CHANGE THIS BY HANDLING THE ODE4 ESTIMATION
-        self.m[0] = 0
-        self.m[1] = 0
-        self.m[2] = 0
-        self.m[3] = 0
-        self.m[4] = 0
+    def read_measures(self, x_robot):
+        self.m[0] = x_robot[0]      # x
+        self.m[1] = x_robot[1]      # y
+        self.m[2] = x_robot[2]      # theta
+        self.m[3] = x_robot[3]      # omegaL
+        self.m[4] = x_robot[4]      # omegaR
 
     def compute_sigma_points(self):
         # Calculate square root of P matrix using Singular Value Decomposition (SVD)
