@@ -117,12 +117,13 @@ class UKF:
         x[1] += dt * v * np.sin(x[2])  # Aggiornamento della posizione y
         x[2] += dt * omega              # Aggiornamento dell'angolo theta
 
-        noise = np.random.normal(0,0.001)
+        #noise = np.random.normal(0,0.001)
+        noiseL = self.P[5][5]
+        noiseR = self.P[6][6]
         #noise = np.clip(noise, -1, 1)
-        x[5] += noise
-        x[6] += noise
+        x[5] += noiseL
+        x[6] += noiseR
 
-        if DEBUG: print(x[5], noise)
         return x
 
     def update(self):
