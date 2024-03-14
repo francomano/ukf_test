@@ -119,12 +119,12 @@ class UKF:
         #noise = np.random.normal(0,0.001)
         noiseL = np.random.normal(0,self.P[5][5])
         noiseR = np.random.normal(0,self.P[6][6])
-        noiseL = np.clip(noiseL,-1,1)
-        noiseR = np.clip(noiseL,-1,1)
+        #noiseL = np.clip(noiseL,-10,10)
+        #noiseR = np.clip(noiseL,-10,10)
         x[5] += noiseL
-        x[5] = np.clip(x[5],-0.5,0.5)
+        x[5] = np.clip(x[5],-0.9,0.9)
         x[6] += noiseR
-        x[6] = np.clip(x[6],-0.5,0.5)
+        x[6] = np.clip(x[6],-0.9,0.9)
    
         return x
 
