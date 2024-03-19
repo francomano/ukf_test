@@ -2,6 +2,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import math
+import os
+import pinocchio as pin
 
 DEBUG = False
 
@@ -14,7 +17,7 @@ def normalize_angle(angle):
         return angle
     
 class UKF:
-    def __init__(self):
+    def __init__(self, ):
         
         self.state_dim = 7  # State dimension: [x, y, theta, omegaL, omegaR, iL, iR]
         self.measurement_dim = 5  # Measurement dimension: [x, y, theta, omegaL, omegaR]
@@ -42,20 +45,26 @@ class UKF:
         self.Wc[0] = self.Wm[0] + (1 - self.alpha**2 + self.beta)
 
 
-        self.xdot = 0
-        self.omega = 0
+        self.tau = np.array([0,0])
 
         # Wheel parameters
-        self.wheel_distance = 0.4044  
+        self.wheel_distance = 0.2022  
         self.wheel_radius = 0.0985 
+
+        self.urdfFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tiago.urdf')
+        self.rmodel = pin.buildModelFromUrdf(self.urdfFile, pin.JointModelFreeFlyer())
+        self.rdata = self.rmodel.createData()
+        self.q = pin.neutral(self.rmodel)
+        self.v = pin.utils.zero(self.rmodel.nv)
         
 
-    def read_measures(self, x_robot):
+    def read_measures(self, x_robot,tau):
         self.m[0] = x_robot[0]      # x
         self.m[1] = x_robot[1]      # y
         self.m[2] = x_robot[2]      # theta
         self.m[3] = x_robot[3]      # omegaL
         self.m[4] = x_robot[4]      # omegaR
+        self.tau = tau
 
     def compute_sigma_points(self):
         # Calculate square root of P matrix using Singular Value Decomposition (SVD)
@@ -93,6 +102,7 @@ class UKF:
         
         # Update the state and covariance with the prediction
         self.x = x_pred
+        #print(self.P)
         self.P = P_pred
 
     def h(self, x):
@@ -107,9 +117,53 @@ class UKF:
         :param dt: Incremento temporale.
         :return: Stato aggiornato.
         """
-        # Estrai la velocità lineare (v) e la velocità angolare (omega) dallo stato.
-        v = self.xdot  # self.xdot nel contesto del tuo sistema
-        omega = self.omega  # self.omega nel contesto del tuo sistema
+
+        theta = self.x[2]
+        iLe = self.x[5]
+        iRe = self.x[6]
+
+        S = (1 / (2 * self.wheel_distance)) * np.array([
+            [self.wheel_distance * self.wheel_radius * (1 - iLe) * math.cos(theta), self.wheel_distance * self.wheel_radius * (1 - iRe) * math.cos(theta)],
+            [self.wheel_distance * self.wheel_radius * (1 - iLe) * math.sin(theta), self.wheel_distance * self.wheel_radius * (1 - iRe) * math.sin(theta)],
+            [-2*self.wheel_radius * (1 - iLe), 2*self.wheel_radius * (1 - iRe)]
+        ]) 
+        
+        B = np.array([
+            [math.cos(theta), math.cos(theta)],
+            [math.sin(theta), math.sin(theta)],
+            [-self.wheel_distance/2, self.wheel_distance/2]
+        ])
+        
+        pin.computeAllTerms(self.rmodel, self.rdata, self.q, self.v)
+        # Extract centroidal mass and centroidal inertia matrix
+        m = self.rdata.Ig.mass                  # Total mass of the robot
+        I_zz = self.rdata.Ig.inertia[2, 2]      # Moment of inertia about the vertical axis    
+
+        # Compute the 3x3 mass matrix M
+        M = np.array([[m, 0, 0], [0, m, 0], [0, 0, I_zz]])
+        
+        Bbar = S.T @ B
+        Mbar = S.T @ M @ S
+        
+
+        csidot = np.linalg.inv(Mbar) @ Bbar @ self.tau       # [w_l_dot, w_r_dot]
+
+
+        omegaL = csidot[0] * dt
+        omegaR = csidot[1] * dt
+
+        x[3] = omegaL
+        x[4] = omegaR
+
+        T = self.wheel_radius / (2 * self.wheel_distance) * np.array([
+            [self.wheel_distance * (1 - iLe), self.wheel_distance * (1 - iRe)],
+            [-2 * (1 - iLe), 2 * (1 - iRe)]])
+   
+
+        velocities = T @ np.array([omegaL,omegaR])
+        v = velocities[0]
+        omega = velocities[1]
+
         
         # Aggiorna la posizione e l'angolo in base al modello di movimento del robot.
         x[0] += dt * v * np.cos(x[2])  # Aggiornamento della posizione x
@@ -117,14 +171,14 @@ class UKF:
         x[2] += dt * omega              # Aggiornamento dell'angolo theta
 
         #noise = np.random.normal(0,0.001)
-        noiseL = np.random.normal(0,self.P[5][5])
-        noiseR = np.random.normal(0,self.P[6][6])
+        #noiseL = np.random.normal(0,self.P[5][5])
+        #noiseR = np.random.normal(0,self.P[6][6])
         #noiseL = np.clip(noiseL,-10,10)
         #noiseR = np.clip(noiseL,-10,10)
-        x[5] += noiseL
-        x[5] = np.clip(x[5],-0.9,0.9)
-        x[6] += noiseR
-        x[6] = np.clip(x[6],-0.9,0.9)
+        #x[5] += noiseL
+        #x[5] = np.clip(x[5],-0.9,0.9)
+        #x[6] += noiseR
+        #x[6] = np.clip(x[6],-0.9,0.9)
    
         return x
 
