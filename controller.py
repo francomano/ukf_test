@@ -27,7 +27,7 @@ class Controller:
         # Define controller parameters
         self.wheel_distance = 0.4044 
         self.wheel_radius = 0.0985  
-        self.v_r = 0.08
+        self.v_r = 0.3
         self.w_r = 0.1
 
         self.k1 = 1

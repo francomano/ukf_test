@@ -35,7 +35,7 @@ class UKF:
         # UKF parameters
         self.alpha = 1
         self.beta = 2
-        self.kappa = 3 - self.state_dim
+        self.kappa = 1
         self.lambda_ = self.alpha**2 * (self.state_dim + self.kappa) - self.state_dim
 
         # Weights for sigma points
@@ -152,15 +152,15 @@ class UKF:
         omegaL = csidot[0] * dt
         omegaR = csidot[1] * dt
 
-        x[3] = omegaL
-        x[4] = omegaR
+        x[3] += omegaL
+        x[4] += omegaR
 
         T = self.wheel_radius / (2 * self.wheel_distance) * np.array([
             [self.wheel_distance * (1 - iLe), self.wheel_distance * (1 - iRe)],
             [-2 * (1 - iLe), 2 * (1 - iRe)]])
    
 
-        velocities = T @ np.array([omegaL,omegaR])
+        velocities = T @ np.array([x[3],x[4]])
         v = velocities[0]
         omega = velocities[1]
 
